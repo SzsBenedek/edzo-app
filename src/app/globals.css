@@ -1,26 +1,69 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --bg: #f6f6f3;
+  --surface: #ffffff;
+  --surface-2: #f0f0ec;
+  --text: #17181c;
+  --muted: #6a6f7a;
+  --line: #e5e5e0;
+  --accent: #e0592a;
+  --accent-ink: #ffffff;
+  --accent-soft: #fdebe3;
+  --ok: #16a34a;
+  --ok-soft: #e3f5e9;
+  --danger: #dc2626;
+  --series-income: #2a78d6;
+  --series-expense: #eb6834;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --bg: #111214;
+    --surface: #1a1b1f;
+    --surface-2: #232429;
+    --text: #eceef1;
+    --muted: #9ca1ab;
+    --line: #2c2e34;
+    --accent: #ff7a45;
+    --accent-ink: #1a0d06;
+    --accent-soft: #3a1f13;
+    --ok: #4ade80;
+    --ok-soft: #13301d;
+    --danger: #f87171;
+    --series-income: #3987e5;
+    --series-expense: #d95926;
   }
 }
 
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-danger: var(--danger);
+  --color-series-income: var(--series-income);
+  --color-series-expense: var(--series-expense);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* iOS-en 16px alatti inputnál ráközelít a böngésző */
+input,
+select,
+textarea {
+  font-size: 16px;
 }

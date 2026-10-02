@@ -43,3 +43,24 @@ export async function saveRecurringExpense(_prev: ActionState, formData: FormDat
   revalidatePath("/beallitasok");
   return { ok: true };
 }
+
+export async function savePassProduct(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const { supabase } = await requireUser();
+  const id = String(formData.get("id") ?? "");
+  const name = String(formData.get("name") ?? "").trim();
+  const total = Number(formData.get("total_sessions"));
+  const paid = Number(String(formData.get("paid_sessions") ?? "").replace(",", "."));
+  const active = formData.get("active") === "on";
+  if (!name) return { error: "Adj nevet a bérletnek." };
+  if (!Number.isInteger(total) || total <= 0) return { error: "Az alkalmak száma pozitív egész legyen." };
+  if (!Number.isFinite(paid) || paid <= 0) return { error: "A fizetett alkalmak száma legyen nagyobb, mint 0." };
+
+  const row = { name, total_sessions: total, paid_sessions: Math.round(paid * 100) / 100, active };
+  const { error } = id
+    ? await supabase.from("pass_products").update(row).eq("id", id)
+    : await supabase.from("pass_products").insert(row);
+  if (error) return { error: "Nem sikerült menteni." };
+
+  revalidatePath("/beallitasok");
+  return { ok: true };
+}

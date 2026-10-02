@@ -2,18 +2,19 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Archive, ArchiveRestore, CalendarPlus, ChevronRight, Phone, Mail } from "lucide-react";
 import { requireUser } from "@/lib/supabase/server";
-import { formatFt, formatTime, TZ } from "@/lib/format";
+import { fmtDuration, formatFt, formatTime, TZ } from "@/lib/format";
 import { BackLink, ButtonLink, Card, PageHeader, StatusBadge } from "@/components/ui";
 import { ExerciseIcon } from "@/components/ExerciseIcon";
-import type { Appointment, Client, PassBalance, PassProduct } from "@/lib/types";
+import type { Appointment, Client, PassBalance, PassProduct, Tracking } from "@/lib/types";
 import { setClientActive, updateClient } from "../actions";
 import { ClientForm } from "../ClientForm";
 import { SellPassForm } from "./SellPassForm";
 
 type SetRow = {
-  reps: number;
+  reps: number | null;
   weight_kg: number | null;
-  exercise: { id: string; name: string; icon: string };
+  duration_sec: number | null;
+  exercise: { id: string; name: string; icon: string; tracking: Tracking };
   appointment: { starts_at: string };
 };
 
@@ -35,7 +36,7 @@ export default async function ClientPage({ params }: PageProps<"/kliensek/[id]">
         .limit(30),
       supabase
         .from("workout_sets")
-        .select("reps, weight_kg, exercise:exercises(id, name, icon), appointment:appointments!inner(starts_at, client_id)")
+        .select("reps, weight_kg, duration_sec, exercise:exercises(id, name, icon, tracking), appointment:appointments!inner(starts_at, client_id)")
         .eq("appointment.client_id", id)
         .returns<SetRow[]>(),
       supabase.from("pass_products").select("*").eq("active", true).order("total_sessions", { ascending: false }),
@@ -190,8 +191,11 @@ export default async function ClientPage({ params }: PageProps<"/kliensek/[id]">
   );
 }
 
-function formatSet(reps: number, weight: number | null) {
-  return weight ? `${Number(weight)} kg × ${reps}` : `${reps} ism.`;
+function formatSet(s: SetRow) {
+  const kg = s.weight_kg ? `${Number(s.weight_kg)} kg` : "";
+  if (s.exercise.tracking === "time") return fmtDuration(s.duration_sec);
+  if (s.exercise.tracking === "weight_time") return [kg, fmtDuration(s.duration_sec)].filter(Boolean).join(" × ");
+  return kg ? `${kg} × ${s.reps ?? 0}` : `${s.reps ?? 0} ism.`;
 }
 
 /** Gyakorlatonként: legutóbbi legjobb sorozat, csúcs, és hány edzésen szerepelt. */
@@ -203,7 +207,8 @@ function summarizeProgress(sets: SetRow[]) {
     byExercise.set(s.exercise.id, list);
   }
 
-  const score = (s: SetRow) => (Number(s.weight_kg) || 0) * 1000 + s.reps;
+  // Súly az elsődleges, utána az ismétlés vagy az idő számít.
+  const score = (s: SetRow) => (Number(s.weight_kg) || 0) * 100000 + (s.reps ?? 0) + (s.duration_sec ?? 0);
 
   return [...byExercise.values()]
     .map((list) => {
@@ -214,8 +219,8 @@ function summarizeProgress(sets: SetRow[]) {
         id: list[0].exercise.id,
         name: list[0].exercise.name,
         icon: list[0].exercise.icon,
-        last: formatSet(lastTop.reps, lastTop.weight_kg),
-        best: formatSet(best.reps, best.weight_kg),
+        last: formatSet(lastTop),
+        best: formatSet(best),
         sessions: new Set(list.map((s) => s.appointment.starts_at)).size,
         lastDate,
       };

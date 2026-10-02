@@ -58,22 +58,23 @@ begin
   select id into v_5  from public.pass_products where user_id = v_user and total_sessions = 6  limit 1;
 
   -- Gyakorlatok és a hozzájuk tartozó kezdősúly (null = saját testsúly)
-  create temp table demo_ex (ord int, name text, icon text, base numeric) on commit drop;
+  create temp table demo_ex (ord int, name text, icon text, base numeric, tracking text default (null)) on commit drop;
   insert into demo_ex values
-    (1,  'Guggolás',         'person-standing', 30),
-    (2,  'Felhúzás',         'dumbbell',        40),
-    (3,  'Fekvenyomás',      'dumbbell',        25),
-    (4,  'Evezés kábelen',   'repeat',          25),
-    (5,  'Kitörés',          'footprints',      10),
-    (6,  'Csípőemelés',      'move-vertical',   40),
-    (7,  'Vállból nyomás',   'biceps-flexed',   10),
-    (8,  'Lehúzás',          'move-vertical',   30),
-    (9,  'Bicepsz hajlítás', 'biceps-flexed',   7.5),
-    (10, 'Plank',            'timer',           null),
-    (11, 'Kettlebell swing', 'flame',           12),
-    (12, 'Szobabicikli',     'bike',            null);
+    (1,  'Guggolás',         'person-standing', 30, null),
+    (2,  'Felhúzás',         'dumbbell',        40, null),
+    (3,  'Fekvenyomás',      'dumbbell',        25, null),
+    (4,  'Evezés kábelen',   'repeat',          25, null),
+    (5,  'Kitörés',          'footprints',      10, null),
+    (6,  'Csípőemelés',      'move-vertical',   40, null),
+    (7,  'Vállból nyomás',   'biceps-flexed',   10, null),
+    (8,  'Lehúzás',          'move-vertical',   30, null),
+    (9,  'Bicepsz hajlítás', 'biceps-flexed',   7.5, null),
+    (10, 'Plank',            'timer',           null, 'time'),
+    (11, 'Kettlebell swing', 'flame',           12, null),
+    (12, 'Szobabicikli',     'bike',            null, 'time');
 
-  insert into public.exercises (user_id, name, icon) select v_user, name, icon from demo_ex order by ord;
+  insert into public.exercises (user_id, name, icon, tracking)
+  select v_user, name, icon, coalesce(tracking, 'weight') from demo_ex order by ord;
 
   select array_agg(x.id order by d.ord), array_agg(d.base order by d.ord)
   into v_ex, v_base
@@ -143,11 +144,13 @@ begin
         for e in 0..3 loop
           i := 1 + ((e + v_n + length(c.name)) % array_length(v_ex, 1));
           for s in 1..3 loop
-            insert into public.workout_sets (user_id, appointment_id, exercise_id, set_no, reps, weight_kg)
+            insert into public.workout_sets (user_id, appointment_id, exercise_id, set_no, reps, weight_kg, duration_sec)
             values (v_user, v_appt, v_ex[i], s,
-                    12 - s - (v_n % 2),
+                    case when v_base[i] is null then null else 12 - s - (v_n % 2) end,
                     -- kezdősúly + kliensenkénti eltérés + kéthetente 2,5 kg fejlődés
-                    v_base[i] + (length(c.name) % 3) * 2.5 + (v_n / 2) * 2.5);
+                    v_base[i] + (length(c.name) % 3) * 2.5 + (v_n / 2) * 2.5,
+                    -- időalapú gyakorlat (plank, bicikli): hetente hosszabb
+                    case when v_base[i] is null then 30 + (v_n / 2) * 10 end);
           end loop;
         end loop;
       end if;

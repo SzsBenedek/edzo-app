@@ -13,7 +13,15 @@ export type Client = {
   active: boolean;
 };
 
-export type Exercise = { id: string; name: string; icon: string };
+export type Tracking = "weight" | "time" | "weight_time";
+
+export const TRACKING_LABELS: Record<Tracking, string> = {
+  weight: "Súly + ismétlés",
+  time: "Időtartam",
+  weight_time: "Súly + időtartam",
+};
+
+export type Exercise = { id: string; name: string; icon: string; tracking: Tracking };
 
 export type PassProduct = {
   id: string;
@@ -51,8 +59,9 @@ export type WorkoutSet = {
   appointment_id: string;
   exercise_id: string;
   set_no: number;
-  reps: number;
+  reps: number | null;
   weight_kg: number | null;
+  duration_sec: number | null;
 };
 
 export type Settings = { session_price: number; group_session_rate: number };

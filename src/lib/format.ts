@@ -10,6 +10,12 @@ export function formatFt(value: number) {
   return huf.format(value);
 }
 
+/** Másodperc -> "1:30" */
+export function fmtDuration(sec: number | null) {
+  if (!sec) return "0:00";
+  return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
+}
+
 export function formatTime(iso: string) {
   return new Intl.DateTimeFormat("hu-HU", { timeZone: TZ, hour: "2-digit", minute: "2-digit" }).format(
     new Date(iso),

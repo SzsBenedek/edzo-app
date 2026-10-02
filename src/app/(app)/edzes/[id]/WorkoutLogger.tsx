@@ -4,12 +4,29 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Check, Minus, Plus, Search, Trash2, X } from "lucide-react";
 import { ExerciseIcon } from "@/components/ExerciseIcon";
 import { Card } from "@/components/ui";
-import type { Exercise, WorkoutSet } from "@/lib/types";
-import { addSet, deleteSet, updateSet } from "./actions";
+import { fmtDuration } from "@/lib/format";
+import type { Exercise, Tracking, WorkoutSet } from "@/lib/types";
+import { addSet, deleteSet, updateSet, type SetValues } from "./actions";
 
-type PrevSet = { reps: number; weight_kg: number | null };
+type PrevSet = SetValues;
 
 const fmtKg = (w: number | null) => (w ? `${Number(w)} kg` : "saját súly");
+
+/** Egy sorozat rövid szöveges formája a „Múltkor” sorhoz. */
+function fmtSet(t: Tracking, s: SetValues) {
+  const kg = s.weight_kg ? `${Number(s.weight_kg)}×` : "";
+  if (t === "time") return fmtDuration(s.duration_sec);
+  if (t === "weight_time") return `${kg}${fmtDuration(s.duration_sec)}`;
+  return `${kg}${s.reps ?? 0}`;
+}
+
+/** Új gyakorlat első sorozatának alapértéke, ha nincs korábbi adat. */
+function defaults(t: Tracking): SetValues {
+  if (t === "weight") return { reps: 10, weight_kg: null, duration_sec: null };
+  return { reps: null, weight_kg: null, duration_sec: 30 };
+}
+
+const values = (s: SetValues): SetValues => ({ reps: s.reps, weight_kg: s.weight_kg, duration_sec: s.duration_sec });
 
 export function WorkoutLogger({
   appointmentId,
@@ -51,15 +68,15 @@ export function WorkoutLogger({
     return promise;
   }
 
-  function create(exerciseId: string, reps: number, weight: number | null) {
+  function create(exerciseId: string, v: SetValues) {
     const setNo = sets.filter((s) => s.exercise_id === exerciseId).length + 1;
     startTransition(async () => {
-      const res = await track(addSet(appointmentId, exerciseId, setNo, reps, weight));
+      const res = await track(addSet(appointmentId, exerciseId, setNo, values(v)));
       if (res.set) setSets((prev) => [...prev, res.set!]);
     });
   }
 
-  function change(id: string, patch: Partial<Pick<WorkoutSet, "reps" | "weight_kg">>) {
+  function change(id: string, patch: Partial<SetValues>) {
     const current = setsRef.current.find((s) => s.id === id);
     if (!current) return;
     const next = { ...current, ...patch };
@@ -69,7 +86,7 @@ export function WorkoutLogger({
     clearTimeout(timers.current.get(id));
     timers.current.set(
       id,
-      setTimeout(() => track(updateSet(id, next.reps, next.weight_kg)), 600),
+      setTimeout(() => track(updateSet(id, values(next))), 600),
     );
   }
 
@@ -81,8 +98,8 @@ export function WorkoutLogger({
 
   function addExercise(exerciseId: string) {
     setPickerOpen(false);
-    const first = previous[exerciseId]?.[0];
-    create(exerciseId, first?.reps ?? 10, first?.weight_kg ?? null);
+    const t = exerciseById.get(exerciseId)?.tracking ?? "weight";
+    create(exerciseId, previous[exerciseId]?.[0] ?? defaults(t));
   }
 
   return (
@@ -105,6 +122,10 @@ export function WorkoutLogger({
         const exSets = sets.filter((s) => s.exercise_id === exerciseId);
         const prev = previous[exerciseId];
         const last = exSets[exSets.length - 1];
+        const t: Tracking = ex?.tracking ?? "weight";
+        const showWeight = t !== "time";
+        const showReps = t === "weight";
+        const showTime = t !== "weight";
         return (
           <Card key={exerciseId} className="p-4">
             <div className="mb-3 flex items-center gap-3">
@@ -115,7 +136,7 @@ export function WorkoutLogger({
                 <h3 className="truncate font-semibold">{ex?.name ?? "Gyakorlat"}</h3>
                 {prev && (
                   <p className="truncate text-xs text-muted">
-                    Múltkor: {prev.map((p) => `${p.weight_kg ? Number(p.weight_kg) + "×" : ""}${p.reps}`).join(", ")}
+                    Múltkor: {prev.map((p) => fmtSet(t, p)).join(", ")}
                   </p>
                 )}
               </div>
@@ -124,8 +145,9 @@ export function WorkoutLogger({
             {exSets.length > 0 && (
               <div className="mb-1.5 flex gap-1.5 text-xs text-muted sm:gap-2" aria-hidden>
                 <span className="w-5 shrink-0 sm:w-6" />
-                <span className="flex-1 text-center">Súly (kg)</span>
-                <span className="flex-1 text-center">Ismétlés</span>
+                {showWeight && <span className="flex-1 text-center">Súly (kg)</span>}
+                {showReps && <span className="flex-1 text-center">Ismétlés</span>}
+                {showTime && <span className="flex-1 text-center">Idő (mp)</span>}
                 <span className="w-8 shrink-0 sm:w-10" />
               </div>
             )}
@@ -133,18 +155,30 @@ export function WorkoutLogger({
               {exSets.map((s, i) => (
                 <li key={s.id} className="flex items-center gap-1.5 sm:gap-2">
                   <span className="w-5 shrink-0 text-center text-sm font-semibold text-muted tabular-nums sm:w-6">{i + 1}.</span>
-                  <Stepper
-                    label={`${i + 1}. sorozat súlya: ${fmtKg(s.weight_kg)}`}
-                    value={s.weight_kg ? Number(s.weight_kg) : 0}
-                    step={2.5}
-                    onChange={(v) => change(s.id, { weight_kg: v || null })}
-                  />
-                  <Stepper
-                    label={`${i + 1}. sorozat: ${s.reps} ismétlés`}
-                    value={s.reps}
-                    step={1}
-                    onChange={(v) => change(s.id, { reps: v })}
-                  />
+                  {showWeight && (
+                    <Stepper
+                      label={`${i + 1}. sorozat súlya: ${fmtKg(s.weight_kg)}`}
+                      value={s.weight_kg ? Number(s.weight_kg) : 0}
+                      step={2.5}
+                      onChange={(v) => change(s.id, { weight_kg: v || null })}
+                    />
+                  )}
+                  {showReps && (
+                    <Stepper
+                      label={`${i + 1}. sorozat: ${s.reps ?? 0} ismétlés`}
+                      value={s.reps ?? 0}
+                      step={1}
+                      onChange={(v) => change(s.id, { reps: v })}
+                    />
+                  )}
+                  {showTime && (
+                    <Stepper
+                      label={`${i + 1}. sorozat ideje: ${fmtDuration(s.duration_sec)}`}
+                      value={s.duration_sec ?? 0}
+                      step={15}
+                      onChange={(v) => change(s.id, { duration_sec: v })}
+                    />
+                  )}
                   <button
                     aria-label="Sorozat törlése"
                     onClick={() => remove(s.id)}
@@ -157,7 +191,7 @@ export function WorkoutLogger({
             </ul>
 
             <button
-              onClick={() => create(exerciseId, last?.reps ?? 10, last?.weight_kg ?? null)}
+              onClick={() => create(exerciseId, last ?? defaults(t))}
               className="mt-3 w-full rounded-xl border border-dashed border-line py-2.5 text-sm font-medium text-muted hover:border-accent hover:text-accent"
             >
               + Sorozat

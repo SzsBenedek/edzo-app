@@ -22,7 +22,14 @@ type AppointmentDetail = {
   pass: { name: string } | null;
 };
 
-type PrevRow = { exercise_id: string; set_no: number; reps: number; weight_kg: number | null; appointment_id: string };
+type PrevRow = {
+  exercise_id: string;
+  set_no: number;
+  reps: number | null;
+  weight_kg: number | null;
+  duration_sec: number | null;
+  appointment_id: string;
+};
 
 const dateFmt = new Intl.DateTimeFormat("hu-HU", { timeZone: TZ, month: "long", day: "numeric", weekday: "long" });
 
@@ -42,10 +49,10 @@ export default async function WorkoutPage({ params }: PageProps<"/edzes/[id]">) 
   const [{ data: sets }, { data: exercises }, previous, balance] = await Promise.all([
     supabase
       .from("workout_sets")
-      .select("id, appointment_id, exercise_id, set_no, reps, weight_kg")
+      .select("id, appointment_id, exercise_id, set_no, reps, weight_kg, duration_sec")
       .eq("appointment_id", id)
       .order("created_at"),
-    supabase.from("exercises").select("id, name, icon").order("name"),
+    supabase.from("exercises").select("id, name, icon, tracking").order("name"),
     appt.client ? previousSets(supabase, appt.client.id, appt.starts_at) : Promise.resolve({}),
     appt.pass_id
       ? supabase
@@ -127,7 +134,7 @@ async function previousSets(
 
   const { data: sets } = await supabase
     .from("workout_sets")
-    .select("exercise_id, set_no, reps, weight_kg, appointment_id")
+    .select("exercise_id, set_no, reps, weight_kg, duration_sec, appointment_id")
     .in(
       "appointment_id",
       data.map((a) => a.id),
@@ -142,10 +149,10 @@ async function previousSets(
     if (!cur || rank.get(row.appointment_id)! < rank.get(cur.appt)!) latestAppt.set(row.exercise_id, { appt: row.appointment_id });
   }
 
-  const result: Record<string, { reps: number; weight_kg: number | null }[]> = {};
+  const result: Record<string, { reps: number | null; weight_kg: number | null; duration_sec: number | null }[]> = {};
   const rows = (sets ?? [])
     .filter((r) => latestAppt.get(r.exercise_id)?.appt === r.appointment_id)
     .sort((a, b) => a.set_no - b.set_no);
-  for (const r of rows) (result[r.exercise_id] ??= []).push({ reps: r.reps, weight_kg: r.weight_kg });
+  for (const r of rows) (result[r.exercise_id] ??= []).push({ reps: r.reps, weight_kg: r.weight_kg, duration_sec: r.duration_sec });
   return result;
 }

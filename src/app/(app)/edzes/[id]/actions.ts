@@ -30,10 +30,14 @@ export async function deleteAppointment(id: string) {
   redirect("/naptar");
 }
 
-function clean(reps: number, weight: number | null) {
+export type SetValues = { reps: number | null; weight_kg: number | null; duration_sec: number | null };
+
+function clean(v: SetValues) {
+  const int = (n: number | null) => (n === null || !Number.isFinite(n) ? null : Math.max(0, Math.round(n)));
   return {
-    reps: Math.max(0, Math.round(reps) || 0),
-    weight_kg: weight === null || !Number.isFinite(weight) || weight <= 0 ? null : Math.round(weight * 100) / 100,
+    reps: int(v.reps),
+    weight_kg: v.weight_kg === null || !Number.isFinite(v.weight_kg) || v.weight_kg <= 0 ? null : Math.round(v.weight_kg * 100) / 100,
+    duration_sec: int(v.duration_sec),
   };
 }
 
@@ -41,23 +45,22 @@ export async function addSet(
   appointmentId: string,
   exerciseId: string,
   setNo: number,
-  reps: number,
-  weight: number | null,
+  values: SetValues,
 ): Promise<{ set?: WorkoutSet; error?: string }> {
   const { supabase } = await requireUser();
   const { data, error } = await supabase
     .from("workout_sets")
-    .insert({ appointment_id: appointmentId, exercise_id: exerciseId, set_no: setNo, ...clean(reps, weight) })
-    .select("id, appointment_id, exercise_id, set_no, reps, weight_kg")
+    .insert({ appointment_id: appointmentId, exercise_id: exerciseId, set_no: setNo, ...clean(values) })
+    .select("id, appointment_id, exercise_id, set_no, reps, weight_kg, duration_sec")
     .single();
   if (error) return { error: "Nem sikerült menteni." };
   revalidatePath(`/edzes/${appointmentId}`);
   return { set: data as WorkoutSet };
 }
 
-export async function updateSet(id: string, reps: number, weight: number | null) {
+export async function updateSet(id: string, values: SetValues) {
   const { supabase } = await requireUser();
-  const { error } = await supabase.from("workout_sets").update(clean(reps, weight)).eq("id", id);
+  const { error } = await supabase.from("workout_sets").update(clean(values)).eq("id", id);
   return error ? { error: "Nem sikerült menteni." } : {};
 }
 

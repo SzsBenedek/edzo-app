@@ -5,12 +5,13 @@ import { Trash2 } from "lucide-react";
 import { EXERCISE_ICONS, ExerciseIcon } from "@/components/ExerciseIcon";
 import { FormError, Input, SubmitButton, type ActionState } from "@/components/form";
 import { Card, EmptyState } from "@/components/ui";
-import type { Exercise } from "@/lib/types";
-import { createExercise, deleteExercise } from "./actions";
+import { TRACKING_LABELS, type Exercise, type Tracking } from "@/lib/types";
+import { createExercise, deleteExercise, updateExerciseTracking } from "./actions";
 
 export function ExerciseManager({ exercises }: { exercises: Exercise[] }) {
   const [state, action] = useActionState<ActionState, FormData>(createExercise, {});
   const [icon, setIcon] = useState("dumbbell");
+  const [tracking, setTracking] = useState<Tracking>("weight");
   const formRef = useRef<HTMLFormElement>(null);
   const [deleteError, setDeleteError] = useState<string>();
   const [, startTransition] = useTransition();
@@ -32,7 +33,24 @@ export function ExerciseManager({ exercises }: { exercises: Exercise[] }) {
                 <span className="grid size-10 place-items-center rounded-xl bg-accent-soft text-accent">
                   <ExerciseIcon name={e.icon} />
                 </span>
-                <span className="flex-1 font-medium">{e.name}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-medium">{e.name}</div>
+                  <select
+                    aria-label={`${e.name}: mit rögzítesz`}
+                    defaultValue={e.tracking}
+                    onChange={(ev) => {
+                      const t = ev.target.value;
+                      startTransition(async () => setDeleteError((await updateExerciseTracking(e.id, t)).error));
+                    }}
+                    className="-ml-1 mt-0.5 rounded-md bg-transparent px-1 py-0.5 text-sm text-muted outline-none hover:bg-surface-2 focus:bg-surface-2"
+                  >
+                    {(Object.keys(TRACKING_LABELS) as Tracking[]).map((t) => (
+                      <option key={t} value={t}>
+                        {TRACKING_LABELS[t]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <button
                   aria-label={`${e.name} törlése`}
                   onClick={() => {
@@ -54,6 +72,25 @@ export function ExerciseManager({ exercises }: { exercises: Exercise[] }) {
           <h2 className="font-semibold">Új gyakorlat</h2>
           <Input name="name" placeholder="pl. Guggolás" required autoComplete="off" />
           <input type="hidden" name="icon" value={icon} />
+          <input type="hidden" name="tracking" value={tracking} />
+          <div>
+            <div className="mb-2 text-sm font-medium">Mit rögzítesz?</div>
+            <div className="grid gap-1 rounded-xl bg-surface-2 p-1">
+              {(Object.keys(TRACKING_LABELS) as Tracking[]).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  aria-pressed={tracking === t}
+                  onClick={() => setTracking(t)}
+                  className={`rounded-lg px-3 py-2 text-left text-sm font-medium transition ${
+                    tracking === t ? "bg-surface text-text shadow-sm" : "text-muted"
+                  }`}
+                >
+                  {TRACKING_LABELS[t]}
+                </button>
+              ))}
+            </div>
+          </div>
           <div>
             <div className="mb-2 text-sm font-medium">Ikon</div>
             <div className="grid grid-cols-8 gap-1.5">

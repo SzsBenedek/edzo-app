@@ -5,7 +5,7 @@ import { ExerciseManager } from "./ExerciseManager";
 
 export default async function ExercisesPage() {
   const { supabase } = await requireUser();
-  const { data } = await supabase.from("exercises").select("id, name, icon").order("name");
+  const { data } = await supabase.from("exercises").select("id, name, icon, tracking").order("name");
 
   return (
     <>

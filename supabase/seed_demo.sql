@@ -6,7 +6,7 @@
 
 do $$
 declare
-  v_email text := 'benedekszabosafar@gmail.com';
+  v_email text := 'demo@example.com';  -- a demó fiók e-mail-címe
   v_user  uuid;
   v_price integer := 9000;          -- demo óraár
   v_10    uuid;                     -- 10+1 bérlettípus

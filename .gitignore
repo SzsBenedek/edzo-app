@@ -40,3 +40,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# egyszeri, valódi azonosítókat tartalmazó javítószkriptek
+supabase/oneoff_*.sql
